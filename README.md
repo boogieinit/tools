@@ -10,3 +10,7 @@ Small command-line scripts.
 
     chmod +x perfview.sh
     ./perfview.sh
+
+## License
+
+MIT - see [LICENSE](LICENSE).
