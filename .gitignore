@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# editor / temp files
+*.swp
+*~
+.vscode/
+.idea/
+
+# secrets - never track these
+.env
+*.pem
+*.key
