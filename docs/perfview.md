@@ -9,20 +9,37 @@ A quick snapshot of what is using your system's resources: the busiest processes
 | CPU | Top 5 processes by CPU | Top 5 processes by CPU |
 | Memory | Top 5 processes by memory | Top 5 processes by memory |
 | Disk I/O | Busiest processes, from `iotop` | Disk throughput from `iostat` (system-wide, not per process) |
-| Network | Traffic for 5 seconds, from `iftop` (falls back to `netstat`) | Open network connections by process (`lsof`) and the routing table (`netstat`) |
+| Network | Traffic for 5 seconds, from `iftop` | Open network connections by process (`lsof`) and the routing table (`netstat`) |
 
 Each section is separated by a line of `#` characters.
 
 ## Supported systems
 
-macOS, CentOS and Ubuntu. The script detects the system on startup and prints `Detected OS`. On anything else it still shows the CPU and memory sections.
+macOS, CentOS and Ubuntu. The script detects the system on startup and prints `Detected OS`.
 
 ## Requirements
 
-- `ps`, `sort` and `top` (standard on every supported system). The script exits if `top` is missing.
-- `iotop` and `iftop` on Linux, for the I/O and network sections.
+The script checks for the programs it needs before doing anything else. **It never installs software.** If something is missing, it lists the missing programs and exits, along with the command you will likely need to run on that system.
 
-**Heads up: it installs software on first run.** If `iotop` or `iftop` is missing, the script tries to install it for you with `yum` (plus `epel-release`) on CentOS, `apt-get` on Ubuntu, or Homebrew on macOS. On Linux that runs with elevated privileges (it uses `sudo`), so you may be asked for your password. The Linux I/O and network sections also run `iotop` and `iftop` with `sudo` every time. If you would rather not have a script install packages, install both tools yourself first, or read the script before running it.
+| System | Required programs |
+|--------|-------------------|
+| All | `ps`, `sort`, `head`, `top` |
+| Linux | `iotop`, `iftop`, `sudo`, `timeout` |
+| macOS | `iostat`, `lsof`, `netstat` (all built into macOS) |
+
+Example of the message on Ubuntu when `iotop` and `iftop` are missing:
+
+    The following required programs are not installed:
+      - iotop
+      - iftop
+
+    Please install them, then run this script again. You will likely need to run:
+      sudo apt-get update
+      sudo apt-get install -y iotop iftop
+
+On CentOS the hint uses `yum` (and adds `epel-release`, which provides `iotop` and `iftop`). On a system the script doesn't recognize, it lists the packages and leaves the choice of package manager to you.
+
+On Linux the I/O and network sections run `iotop` and `iftop` with `sudo`, so you may be asked for your password.
 
 ## Usage
 

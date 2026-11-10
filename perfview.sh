@@ -1,7 +1,13 @@
 #!/bin/bash
 
 # This script lists the top 5 CPU, memory, input/output (I/O), and network consuming processes
-# This script should work on both CentOS and macOS
+# This script should work on CentOS, Ubuntu and macOS
+#
+# Requirements: the script checks for these and exits if any are missing.
+# It never installs anything itself; it prints the command you will likely need instead.
+#   All systems: ps, sort, head, top
+#   Linux:       iotop, iftop, sudo, timeout
+#   macOS:       iostat, lsof, netstat
 
 # Detect operating system
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -16,13 +22,70 @@ fi
 
 echo "Detected OS: $OS"
 
-# Check if top command is present (should be available on all systems by default)
-if command -v top >/dev/null 2>&1; then
-  echo "top command is present"
+# Name of the package that provides a program (Linux)
+package_for() {
+  case "$1" in
+    ps|top)            if [[ "$OS" == "CentOS" ]]; then echo "procps-ng"; else echo "procps"; fi ;;
+    sort|head|timeout) echo "coreutils" ;;
+    *)                 echo "$1" ;;
+  esac
+}
+
+# Check that the required programs are installed
+required="ps sort head top"
+if [[ "$OS" == "macOS" ]]; then
+  required="$required iostat lsof netstat"
 else
-  echo "top command is not present. This is unusual as top should be available by default."
+  required="$required iotop iftop sudo timeout"
+fi
+
+missing=""
+for tool in $required; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    missing="$missing $tool"
+  fi
+done
+
+if [ -n "$missing" ]; then
+  echo "The following required programs are not installed:"
+  for tool in $missing; do
+    echo "  - $tool"
+  done
+
+  # Work out the packages to suggest (no duplicates)
+  packages=""
+  for tool in $missing; do
+    pkg=$(package_for "$tool")
+    case " $packages " in
+      *" $pkg "*) ;;
+      *) packages="$packages $pkg" ;;
+    esac
+  done
+
+  echo ""
+  echo "Please install them, then run this script again. You will likely need to run:"
+  case "$OS" in
+    CentOS)
+      case "$missing" in
+        *iotop*|*iftop*) echo "  sudo yum install -y epel-release" ;;
+      esac
+      echo "  sudo yum install -y$packages"
+      ;;
+    Ubuntu)
+      echo "  sudo apt-get update"
+      echo "  sudo apt-get install -y$packages"
+      ;;
+    macOS)
+      echo "  These programs normally come with macOS, so your installation may be incomplete."
+      ;;
+    *)
+      echo "  (unrecognized system) install these with your package manager:$packages"
+      ;;
+  esac
   exit 1
 fi
+
+echo "All required programs are present"
 
 # Function to list top 5 CPU consuming process
 list_top_cpu_consuming_processes() {
@@ -46,118 +109,40 @@ list_top_memory_consuming_processes() {
   echo "$top_five_memory_processes"
 }
 
-# Check if iotop command is present
-if command -v iotop >/dev/null 2>&1; then
-  echo "iotop command is present"
-else
-  echo "iotop command is not present. Installing..."
-  case $OS in
-    "CentOS")
-      sudo yum install -y epel-release
-      sudo yum install -y iotop
-      ;;
-    "Ubuntu")
-      sudo apt-get update
-      sudo apt-get install -y iotop
-      ;;
-    "macOS")
-      if command -v brew >/dev/null 2>&1; then
-        echo "Installing iotop via Homebrew..."
-        brew install iotop
-      else
-        echo "Homebrew not found. Please install Homebrew first or install iotop manually."
-        echo "Note: iotop may not work properly on macOS due to security restrictions."
-      fi
-      ;;
-    *)
-      echo "Unsupported operating system: $OS"
-      echo "Please install iotop manually"
-      ;;
-  esac
-fi
-
 # Function to list the top 5 processes by I/O usage
 list_top_io_consuming_processes() {
   echo "###############################################################################"
   echo "Top 5 I/O consuming processes:"
-  
+
   if [[ "$OS" == "macOS" ]]; then
-    # On macOS, use fs_usage or iostat as alternatives
-    if command -v iostat >/dev/null 2>&1; then
-      echo "Using iostat for I/O statistics (macOS):"
-      iostat -d 1 2 | tail -n +4
-    else
-      echo "I/O monitoring tools not available on macOS without additional setup"
-      echo "Consider using Activity Monitor or installing monitoring tools via Homebrew"
-    fi
+    # macOS has no iotop, so show system-wide disk statistics instead
+    echo "Using iostat for I/O statistics (macOS):"
+    iostat -d 1 2 | tail -n +4
   else
     # Linux systems
-    if command -v iotop >/dev/null 2>&1; then
-      top_five_io_processes=$(sudo iotop -o -b -n 1 | head -n 10)
-      echo "$top_five_io_processes"
-    else
-      echo "iotop not available - please install it first"
-    fi
+    sudo iotop -o -b -n 1 | head -n 10
   fi
 }
-
-# Check if iftop command is present
-if command -v iftop >/dev/null 2>&1; then
-  echo "iftop command is present"
-else
-  echo "iftop command is not present. Installing..."
-  case $OS in
-    "CentOS")
-      sudo yum install -y iftop
-      ;;
-    "Ubuntu")
-      sudo apt-get update
-      sudo apt-get install -y iftop
-      ;;
-    "macOS")
-      if command -v brew >/dev/null 2>&1; then
-        echo "Installing iftop via Homebrew..."
-        brew install iftop
-      else
-        echo "Homebrew not found. Please install Homebrew first or install iftop manually."
-      fi
-      ;;
-    *)
-      echo "Unsupported operating system: $OS"
-      echo "Please install iftop manually"
-      ;;
-  esac
-fi
-
 
 # Function to list the top 5 processes by network usage
 list_top_network_consuming_processes() {
   echo "###############################################################################"
   echo "Top 5 network consuming processes:"
-  
+
   if [[ "$OS" == "macOS" ]]; then
-    # On macOS, use netstat and lsof as alternatives
+    # macOS has no iftop by default, so show connections by process and routes instead
     echo "Network connections by process (macOS):"
-    if command -v lsof >/dev/null 2>&1; then
-      echo "Active network connections:"
-      lsof -i -P | head -n 20
-    fi
+    echo "Active network connections:"
+    lsof -i -P | head -n 20
     echo ""
     echo "Network statistics:"
-    netstat -rn | head -n 10 2>/dev/null || echo "netstat not available"
+    netstat -rn | head -n 10
   else
     # Linux systems
-    if command -v iftop >/dev/null 2>&1; then
-      echo "Running iftop for 5 seconds..."
-      timeout 5 sudo iftop -P -n -t 2>/dev/null || echo "iftop requires root privileges and may not work in all environments"
-    else
-      echo "iftop not available - please install it first"
-      echo "Alternative: using netstat"
-      netstat -tuln | head -n 10 2>/dev/null || echo "netstat not available"
-    fi
+    echo "Running iftop for 5 seconds..."
+    timeout 5 sudo iftop -P -n -t 2>/dev/null || echo "iftop requires root privileges and may not work in all environments"
   fi
 }
-
 
 # Main function
 main() {
