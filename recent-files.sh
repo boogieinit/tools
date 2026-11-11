@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 #
 # recent-files.sh - List files created or modified within a recent time window.
-#
-# Copyright (c) 2026 Christian Reeves
-# SPDX-License-Identifier: MIT
-# See LICENSE for the full license text.
 #
 # Requirements: Linux with Bash, GNU coreutils (date and stat), and GNU find.
 # Works on Raspberry Pi OS and other Linux distributions with these tools.

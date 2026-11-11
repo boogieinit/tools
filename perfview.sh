@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 
 # This script lists the top 5 CPU, memory, input/output (I/O), and network consuming processes
 # This script should work on CentOS, Ubuntu and macOS

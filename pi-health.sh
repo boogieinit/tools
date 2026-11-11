@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 #
 # pi-health.sh - Raspberry Pi 5 health check with optional e-mail alerting.
 #
