@@ -6,6 +6,7 @@ Small command-line scripts. Each tool has its own page under [`docs/`](docs/) wi
 |--------|--------------|---------|
 | [`perfview.sh`](perfview.sh) | Snapshot of the top resource users: top 5 processes by CPU and memory, plus disk I/O and network activity. macOS and Linux. | [docs/perfview.md](docs/perfview.md) |
 | [`pi-health.sh`](pi-health.sh) | Raspberry Pi 5 health check with optional e-mail alerting. | [docs/pi-health.md](docs/pi-health.md) |
+| [`recent-files.sh`](recent-files.sh) | List files created or modified within a time window on Linux. | [docs/recent-files.md](docs/recent-files.md) |
 
 ## Usage
 
