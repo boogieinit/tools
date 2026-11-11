@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # tools
 
 Small command-line scripts. Each tool has its own page under [`docs/`](docs/) with the details.

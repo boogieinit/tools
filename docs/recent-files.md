@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # recent-files.sh
 
 List regular files created or modified within a given number of hours. The script searches recursively and defaults to the current directory and a 24-hour creation-time window. When run with `/` as the directory, it skips `/proc`.

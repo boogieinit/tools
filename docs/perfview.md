@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: MIT -->
+
 # perfview.sh
 
 A quick snapshot of what is using your system's resources: the busiest processes by CPU and memory, plus disk I/O and network activity.
