@@ -6,7 +6,7 @@ Set up passwordless SSH login to a remote machine in one step. It creates a key 
 
 ## What it does
 
-1. **Key.** Creates an ed25519 key at `~/.ssh/<name>` (with an optional passphrase), or reuses the one that is already there.
+1. **Key.** Creates a key at `~/.ssh/<name>` (ed25519 by default, with an optional passphrase), or reuses the one that is already there, whatever its type. Before changing anything it checks that the key type will work with this computer and the server (see [Key types and older systems](#key-types-and-older-systems)).
 2. **Install.** Copies the public key to the remote account with `ssh-copy-id`, or a built-in equivalent if that isn't available. It asks for the remote password once.
 3. **Agent.** Adds the key to `ssh-agent` (and the Keychain on a Mac), so you aren't asked for the passphrase every time.
 4. **Short name.** Saves a `Host` entry in `~/.ssh/config`. If you gave an alias with `-a` it does this automatically; otherwise it asks.
@@ -24,6 +24,7 @@ OpenSSH (`ssh` and `ssh-keygen`). `ssh-copy-id` is used when present. The remote
 ./ssh-setup.sh host                   # asks for the remote username
 ./ssh-setup.sh -u bob -p 2222 host    # options
 ./ssh-setup.sh -a homelab bob@host    # also saves 'ssh homelab' in ~/.ssh/config
+./ssh-setup.sh -t rsa oldserver       # RSA key, for servers too old for the default
 ```
 
 | Option | Description |
@@ -31,8 +32,29 @@ OpenSSH (`ssh` and `ssh-keygen`). `ssh-copy-id` is used when present. The remote
 | `-u USER` | Remote username (default: asked, offering your local username) |
 | `-p PORT` | Remote SSH port, 1 to 65535 (default: 22) |
 | `-k NAME` | Key name or path, for example `-k homelab` means `~/.ssh/homelab` (default: asked) |
+| `-t TYPE` | Type of key to create: `ed25519` (default), `rsa` (4096-bit, for older systems) or `ecdsa`. Only used when the key doesn't exist yet. DSA is not supported |
 | `-a ALIAS` | Short name for `ssh`. Adds a `Host` entry for it to `~/.ssh/config` automatically. Letters, numbers, `.`, `-` and `_` only |
 | `-h` | Show help |
+
+## Key types and older systems
+
+The default key type is **ed25519**, which is the current recommendation: strong, short and fast. It needs OpenSSH 6.5 (released in 2014) or newer on **both** this computer and the server. For anything older, use `-t rsa`.
+
+| Type | Use it for | Notes |
+|------|------------|-------|
+| `ed25519` (default) | Anything reasonably current | Needs OpenSSH 6.5 or newer |
+| `rsa` | Older servers, or anything that rejects ed25519 | Created as 4096 bits. Works with every version of OpenSSH |
+| `ecdsa` | Rarely needed | 521-bit. Needs OpenSSH 5.7 or newer. Ed25519 or RSA is usually the better choice |
+| DSA | Not supported | OpenSSH turned it off by default in 7.0 (2015) and removed it in 9.8, and it is limited to 1024 bits, so current clients refuse it |
+
+**What is checked before anything is changed:**
+
+- **This computer.** The script asks your `ssh` whether it can create the key type, rather than reading a version number. A distribution-patched or home-compiled OpenSSH is therefore judged by what it can really do. If it can't, the script stops and suggests `-t rsa`.
+- **The server.** The script reads the server's version banner, which needs no login, and stops if the server is OpenSSH and older than the key type needs. It prints "Nothing has been changed" and the exact command to run again with `-t rsa`. The banner shows the upstream OpenSSH version, so distribution builds and home-compiled servers both report correctly.
+- **When it can't tell.** If the server isn't OpenSSH (for example Dropbear or router firmware) or the banner can't be read, the check is skipped and the script carries on. If the final login test then fails, the message says an old server may be the reason.
+- **An existing key** is reused whatever its type, and a server check is made for that type too. Asking for a different type with `-t` than the existing key's is an error, so you never get a surprise.
+
+**Very old servers.** Choosing RSA gets you past the key-type problem, but not necessarily all of it. Servers older than OpenSSH 7.2 only accept RSA signatures made with SHA-1, which OpenSSH clients since 8.8 refuse by default, and such servers may also need old key-exchange or cipher settings. Those settings weaken security and should be turned on deliberately, one server at a time, in `~/.ssh/config` (for example `PubkeyAcceptedAlgorithms +ssh-rsa`, and sometimes `HostKeyAlgorithms +ssh-rsa`). This script does not do that for you, and its final failure message mentions it.
 
 ## The `~/.ssh/config` entry
 
