@@ -11,6 +11,7 @@ Small command-line scripts. Each tool has its own page under [`docs/`](docs/) wi
 | [`recent-files.sh`](recent-files.sh) | List files created or modified within a time window on Linux. | [docs/recent-files.md](docs/recent-files.md) |
 | [`reposync.sh`](reposync.sh) | Pull upstream updates with a fast-forward-only merge. | [docs/reposync.md](docs/reposync.md) |
 | [`repostatus.sh`](repostatus.sh) | Show the current branch and local status. | [docs/repostatus.md](docs/repostatus.md) |
+| [`ssh-setup.sh`](ssh-setup.sh) | Create an SSH key if needed, install it on a remote system for passwordless login, and optionally save a short name in `~/.ssh/config`. | [docs/ssh-setup.md](docs/ssh-setup.md) |
 
 ## Usage
 
