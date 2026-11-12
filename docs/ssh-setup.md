@@ -36,7 +36,7 @@ OpenSSH (`ssh` and `ssh-keygen`). `ssh-copy-id` is used when present. The remote
 
 ## The `~/.ssh/config` entry
 
-With `-a homelab`, a block like this is added to the end of `~/.ssh/config`:
+With `-a homelab`, a block like this is added to `~/.ssh/config`:
 
 ```
 Host homelab
@@ -51,7 +51,11 @@ Host homelab
 After that, `ssh homelab` is all you type, and so is `scp` or `rsync` with `homelab:` as the host.
 
 - **Automatic with `-a`, optional without it.** Giving `-a` is treated as a clear request, so there is no extra question. Without it, the script asks whether to add an entry and what to call it, and the default answer is yes.
-- **Existing entries are never changed.** The file is only ever appended to, and a name that is already used (even as the second name on a line such as `Host foo homelab`) is left alone.
+- **Placed above any wildcard block that matches it.** `ssh` uses the *first* value it finds for each option, so a catch-all block such as `Host *` that sits above an entry would override it (for example, a `User` set in `Host *` would beat the user in your new entry). If the file already has a block whose pattern matches the new name, such as `Host *`, `Host *.example.com`, `Host nas*` or `Match all`, the new entry is inserted just above it, together with any comment lines directly above that block. A pattern that excludes the name (`Host * !homelab`) doesn't count. A copy of your previous config is saved first, next to it, as `config.bak-<date>-<time>`.
+  - **No matching block:** the entry is simply added at the end, and no backup is made.
+  - **Symlinked config:** if `~/.ssh/config` is a symlink (for example from a dotfiles setup), the file it points to is updated and the link is kept.
+  - **Only that one file is read.** Files pulled in with `Include` aren't searched.
+- **Existing entries are never changed.** Nothing is rewritten or reordered; the new entry is only added. A name that is already used (even as the second name on a line such as `Host foo homelab`) is left alone.
   - If the existing entry points to the same host, the script says so and moves on.
   - If it points somewhere else, the script warns you and prints the full `ssh user@host -p ... -i ...` command instead of the alias, so you don't connect to the wrong machine. Use a different `-a` name for a separate entry.
 - **Safe names only.** An alias with a space or a wildcard such as `*` is refused before anything happens, because it could match every host.

@@ -17,6 +17,8 @@
 #   -a ALIAS  short name for ssh (e.g. -a homelab -> 'ssh homelab'). When you give one,
 #             a Host entry for it is added to ~/.ssh/config automatically. Without -a you
 #             are asked whether to add one. An alias may use letters, numbers, . - and _
+#             The entry is placed above any wildcard block (such as 'Host *') that also
+#             matches it, because ssh uses the first value it finds for each option.
 #   -h        show help
 #
 set -euo pipefail
@@ -32,6 +34,46 @@ usage() { sed -n '3,/^set -/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; exit "${1
 # An alias becomes a "Host" line in ~/.ssh/config, so keep it to plain characters:
 # a space would define extra names, and * ? ! would match other hosts.
 valid_alias() { [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]]; }
+
+# ssh uses the FIRST value it finds for each option, so an entry for one host has to come
+# BEFORE any wildcard block (such as "Host *") that also matches it, or that block wins.
+# Usage: find_wildcard_block CONFIG ALIAS
+# Prints "INSERT_AT HIT_LINE" (the line to insert before, and the matching block's line),
+# or nothing if no block in the file matches the alias. Comment lines directly above the
+# matching block are treated as part of it, so the new entry goes above them.
+find_wildcard_block() {
+  awk -v a="$2" '
+    function glob2re(p,   i, c, r) {
+      r = ""
+      for (i = 1; i <= length(p); i++) {
+        c = substr(p, i, 1)
+        if (c == "*") r = r ".*"
+        else if (c == "?") r = r "."
+        else if (index("\\.+()[]{}^$|", c)) r = r "\\" c
+        else r = r c
+      }
+      return "^" r "$"
+    }
+    { line[NR] = $0 }
+    !hit && tolower($1) == "host" {
+      pos = 0; neg = 0
+      for (i = 2; i <= NF; i++) {
+        t = $i
+        if (substr(t, 1, 1) == "!") { if (a ~ glob2re(substr(t, 2))) neg = 1 }
+        else if (a ~ glob2re(t)) pos = 1
+      }
+      if (pos && !neg) hit = NR
+    }
+    !hit && tolower($1) == "match" && tolower($2) == "all" { hit = NR }
+    END {
+      if (hit) {
+        n = hit
+        while (n > 1 && line[n - 1] ~ /^[[:space:]]*#/) n--
+        print n, hit
+      }
+    }
+  ' "$1"
+}
 
 while getopts "u:p:k:a:h" opt; do
   case "$opt" in
@@ -161,8 +203,9 @@ if [[ -n "$ALIAS" ]]; then
       echo "      Run again with a different -a name if you want a separate entry for ${HOST}." >&2
     fi
   else
+    # Build the entry first
+    ENTRY="$(mktemp)"
     {
-      echo
       echo "Host ${ALIAS}"
       echo "    HostName ${HOST}"
       echo "    User ${REMOTE_USER}"
@@ -177,9 +220,38 @@ if [[ -n "$ALIAS" ]]; then
       if [[ "$(uname -s)" == "Darwin" ]]; then
         echo "    UseKeychain yes"
       fi
-    } >> "$CONFIG"
+    } > "$ENTRY"
+
+    # If a wildcard block such as "Host *" already matches this alias, put the new entry
+    # above it (otherwise that block's settings would win). If not, add it at the end.
+    INSERT_INFO="$(find_wildcard_block "$CONFIG" "$ALIAS")"
+    if [[ -z "$INSERT_INFO" ]]; then
+      { echo; cat "$ENTRY"; } >> "$CONFIG"
+      echo "      Added a Host entry for ${ALIAS} to ${CONFIG}."
+    else
+      read -r INSERT_AT HIT_LINE <<< "$INSERT_INFO"
+      HIT_TEXT="$(sed -n "${HIT_LINE}p" "$CONFIG" | sed 's/^[[:space:]]*//')"
+      BACKUP="${CONFIG}.bak-$(date +%Y%m%d-%H%M%S)"
+      cp -p "$CONFIG" "$BACKUP"
+      NEWCFG="$(mktemp)"
+      {
+        awk -v n="$INSERT_AT" 'NR < n' "$CONFIG"      # the lines above the insertion point (none if it is line 1)
+        # keep a blank line between the entry above and the new one
+        if (( INSERT_AT > 1 )) && [[ -n "$(sed -n "$((INSERT_AT - 1))p" "$CONFIG" | tr -d '[:space:]')" ]]; then
+          echo
+        fi
+        cat "$ENTRY"
+        echo
+        awk -v n="$INSERT_AT" 'NR >= n' "$CONFIG"      # the rest, starting with the matching block
+      } > "$NEWCFG"
+      cat "$NEWCFG" > "$CONFIG"   # writes through a symlink and keeps the file's permissions
+      rm -f "$NEWCFG"
+      echo "      Added a Host entry for ${ALIAS} to ${CONFIG}, above the block \"${HIT_TEXT}\""
+      echo "      (ssh uses the first value it finds, so a matching block lower down can't override it)."
+      echo "      Your previous config is saved as ${BACKUP}."
+    fi
+    rm -f "$ENTRY"
     CONFIG_RESULT="added"
-    echo "      Added a Host entry for ${ALIAS} to ${CONFIG}."
   fi
 fi
 
